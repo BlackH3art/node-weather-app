@@ -1,10 +1,24 @@
 const fetch = require('node-fetch');
+const { appendFile } = require('fs').promises;
+const { normalize, resolve } = require('path');
 
-const cityName = process.argv[2];
 
-const processWeatherData = (data) => {
+
+
+// funkcja zabezpieczająca przed podawaniem dostawaniem się do innych katalogów.
+function safeJoin(base, target) {
+  const targetPath = '.' + normalize('/' + target);
+  return resolve(base, targetPath);
+}
+
+// funkcja zwracająca ścieżkę danego pliku.
+const getDataFileName = city => safeJoin('./data/', `${city}.txt`);
+
+
+//funkcja procesowania danych otrzymanych z api.
+const processWeatherData = async (data, city) => {
   
-  const lookedStation = data.find(stationData => stationData.stacja === cityName);
+  const lookedStation = data.find(stationData => stationData.stacja === city);
 
   if(!lookedStation) {
     console.log('Nie ma w API takiej stacji - R.I.P.');
@@ -26,8 +40,26 @@ const processWeatherData = (data) => {
 
   console.log(weatherInfo);
 
+  const dateNow = new Date().toLocaleString();
+
+  await appendFile(getDataFileName(city), `${dateNow} \n ${weatherInfo}\n \n`)
+
 }
 
-fetch('https://danepubliczne.imgw.pl/api/data/synop')
-  .then(response => response.json())
-  .then(processWeatherData)
+
+const checkWeatherInCertainCity = async city => {
+
+  try {
+    const response = await fetch('https://danepubliczne.imgw.pl/api/data/synop');
+    const data = await response.json();
+
+    await processWeatherData(data, city);
+    
+  } catch (err) {
+    console.log('something went wrong', err)
+  }
+}
+
+
+checkWeatherInCertainCity(process.argv[2]);
+
